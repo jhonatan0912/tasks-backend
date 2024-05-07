@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { Task } from './entities';
+import { User } from '@auth/entities/user.entity';
 
 @Injectable()
 export class TasksService {
@@ -13,11 +14,25 @@ export class TasksService {
   constructor(
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
   ) { }
 
-  async create(createTaskDto: CreateTaskDto): Promise<Response<Task>> {
+  async create(userId: string, createTaskDto: CreateTaskDto): Promise<Response<Task>> {
     try {
-      const task = await this.taskRepository.save(createTaskDto);
+      const user = await this.usersRepository.findOne({
+        where: { id: userId },
+        relations: ['tasks']
+      });
+
+      if (!user)
+        throw new NotFoundException('User not found');
+
+      const task = this.taskRepository.create({
+        user,
+        title: createTaskDto.title,
+        description: createTaskDto.description,
+      });
 
       return {
         data: task,
@@ -29,27 +44,29 @@ export class TasksService {
   }
 
   async findAll(
+    userId: string,
     page: number = 1,
     limit: number = 10,
   ): Promise<PaginatedResponse<Task>> {
     try {
-      const realPage = Math.max(1, page);
-      console.log(page);
-
-      const [tasks, total] = await this.taskRepository
-        .createQueryBuilder('task')
-        .skip((realPage - 1) * limit)
+      const user = await this.usersRepository.createQueryBuilder('user')
+        .leftJoinAndSelect('user.tasks', 'tasks')
+        .where('user.id = :userId', { userId })
+        .orderBy('tasks.createdAt', 'DESC')
+        .skip((page - 1) * limit)
         .take(limit)
-        .cache(true)
-        .getManyAndCount();
+        .getOne();
+
+      if (!user)
+        throw new NotFoundException('User not found');
 
       return {
-        data: tasks,
+        data: user.tasks,
         meta: {
-          page: realPage,
+          page,
           limit,
-          total,
-          lastPage: Math.ceil(total / limit),
+          total: user.tasks.length,
+          lastPage: Math.ceil(user.tasks.length / limit),
         },
         message: 'Tasks retrieved successfully',
       };
@@ -58,9 +75,11 @@ export class TasksService {
     }
   }
 
-  async findOne(id: string): Promise<Response<Task>> {
+  async findOne(userId: string, id: string): Promise<Response<Task>> {
     try {
-      const task = await this.taskRepository.findOne({ where: { id } });
+      const task = await this.taskRepository.findOne({
+        where: { id, user: { id: userId } }
+      });
 
       if (!task) throw new NotFoundException('Task not found');
 
@@ -74,15 +93,23 @@ export class TasksService {
   }
 
   async update(
+    userId: string,
     id: string,
     updateTaskDto: UpdateTaskDto,
   ): Promise<Response<Task>> {
     try {
-      const task = await this.taskRepository.findOne({ where: { id } });
+      const task = await this.taskRepository.findOne({
+        where: { id, user: { id: userId } }
+      });
 
-      if (!task) throw new NotFoundException('Task not found');
+      if (!task)
+        throw new NotFoundException('Task not found');
 
-      await this.taskRepository.update(id, updateTaskDto);
+      task.title = updateTaskDto.title;
+      task.description = updateTaskDto.description;
+      task.done = updateTaskDto.done;
+
+      await this.taskRepository.save(task);
 
       return {
         data: task,
@@ -93,16 +120,19 @@ export class TasksService {
     }
   }
 
-  async remove(id: string): Promise<Response<{ id: string; }>> {
+  async remove(userId: string, id: string): Promise<Response<{ id: string; }>> {
     try {
-      const task = await this.taskRepository.findOne({ where: { id } });
+      const task = await this.taskRepository.findOne({
+        where: { id, user: { id: userId } }
+      });
 
-      if (!task) throw new NotFoundException('Task not found');
+      if (!task)
+        throw new NotFoundException('Task not found');
 
-      await this.taskRepository.remove(task);
+      await this.taskRepository.delete(task.id);
 
       return {
-        data: { id },
+        data: { id: task.id },
         message: 'Task deleted successfully',
       };
     } catch (error) {

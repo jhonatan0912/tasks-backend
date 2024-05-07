@@ -8,7 +8,4 @@ export class CreateTaskDto {
   @IsString()
   @MinLength(3)
   description: string;
-
-  @IsBoolean()
-  done?: boolean = false;
 }
