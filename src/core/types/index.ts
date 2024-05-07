@@ -9,7 +9,7 @@ export interface PaginatedResponse<T> {
   message: string;
 }
 
-export interface PaginatedMetaResponse {
+interface PaginatedMetaResponse {
   page: number;
   limit: number;
   total: number;
