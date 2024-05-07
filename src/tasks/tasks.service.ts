@@ -18,7 +18,7 @@ export class TasksService {
     private usersRepository: Repository<User>,
   ) { }
 
-  async create(userId: string, createTaskDto: CreateTaskDto): Promise<Response<Task>> {
+  async create(userId: string, createTaskDto: CreateTaskDto): Promise<Response<Partial<Task>>> {
     try {
       const user = await this.usersRepository.findOne({
         where: { id: userId },
@@ -34,8 +34,14 @@ export class TasksService {
         description: createTaskDto.description,
       });
 
+      await this.taskRepository.save(task);
+
+      const { user: _, ...rest } = task;
+
       return {
-        data: task,
+        data: {
+          ...rest,
+        },
         message: 'Task created successfully',
       };
     } catch (error) {
@@ -49,6 +55,7 @@ export class TasksService {
     limit: number = 10,
   ): Promise<PaginatedResponse<Task>> {
     try {
+      console.log(userId);
       const user = await this.usersRepository.createQueryBuilder('user')
         .leftJoinAndSelect('user.tasks', 'tasks')
         .where('user.id = :userId', { userId })

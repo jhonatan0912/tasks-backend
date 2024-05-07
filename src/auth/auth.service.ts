@@ -106,9 +106,14 @@ export class AuthService {
         throw new NotFoundException('User not found');
 
       const { password: _, ...data } = user;
+      const { email, fullName } = data;
 
       return {
-        data: data,
+        data: {
+          id,
+          email,
+          fullName
+        },
         message: 'Session retrieved successfully'
       };
     } catch (error) {
