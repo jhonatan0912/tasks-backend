@@ -55,7 +55,6 @@ export class TasksService {
     limit: number = 10,
   ): Promise<PaginatedResponse<Task>> {
     try {
-      console.log(userId);
       const user = await this.usersRepository.createQueryBuilder('user')
         .leftJoinAndSelect('user.tasks', 'tasks')
         .where('user.id = :userId', { userId })

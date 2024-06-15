@@ -11,6 +11,7 @@ import { User } from './entities/user.entity';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { JwtPayload } from '@core/interfaces';
 import { JwtService } from '@nestjs/jwt';
+import express from 'express';
 
 @Injectable()
 export class AuthService {
@@ -143,5 +144,22 @@ export class AuthService {
 
   getRefreshToken(payload: JwtPayload): string {
     return this.jwtService.sign(payload, { expiresIn: '7d' });
+  }
+
+  setTokens(response: express.Response, authToken: string, refreshToken: string): void {
+    try {
+      response.cookie('auth_token', authToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'production',
+        sameSite: 'lax',
+      });
+      response.cookie('refresh_token', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'production',
+        sameSite: 'lax'
+      });
+    } catch (error) {
+      throw new Error('Error setting tokens');
+    }
   }
 }
