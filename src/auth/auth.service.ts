@@ -12,6 +12,7 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 import { JwtPayload } from '@core/interfaces';
 import { JwtService } from '@nestjs/jwt';
 import express from 'express';
+import { LogoutDto } from './dto/logout.dto';
 
 @Injectable()
 export class AuthService {
@@ -72,6 +73,21 @@ export class AuthService {
       };
     } catch (error) {
       handleDBExceptions(error);
+    }
+  }
+
+  async logout(response: express.Response): Promise<Response<LogoutDto>> {
+    try {
+      response.clearCookie('auth_token');
+      response.clearCookie('refresh_token');
+      return {
+        data: {
+          success: true
+        },
+        message: 'Successfully logged out'
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Logout failed');
     }
   }
 
